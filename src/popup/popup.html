@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Outreach Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔗 Outreach Assistant</h1>
+      <p class="subtitle">Scrape contacts & send cold messages</p>
+      <button id="btn-settings" class="settings-btn" title="API Settings">⚙️</button>
+    </header>
+
+    <!-- Step 1: Company Input -->
+    <section id="step-company" class="step active">
+      <label for="company-input">Company Name</label>
+      <input
+        type="text"
+        id="company-input"
+        placeholder="e.g. Charter Communications"
+        autocomplete="off"
+      />
+
+      <div class="mode-toggle">
+        <label class="toggle-label">Send Mode:</label>
+        <div class="toggle-buttons">
+          <button id="mode-manual" class="mode-btn active" data-mode="manual">
+            ✋ Manual Review
+          </button>
+          <button id="mode-auto" class="mode-btn" data-mode="auto">
+            ⚡ Automated
+          </button>
+        </div>
+      </div>
+
+      <button id="btn-scrape" class="primary-btn" disabled>
+        🔍 Find People at Company
+      </button>
+    </section>
+
+    <!-- Step 2: Scraping Status -->
+    <section id="step-scraping" class="step">
+      <div class="status-box">
+        <div class="spinner"></div>
+        <p id="scrape-status">Navigating to LinkedIn search...</p>
+        <p id="scrape-count" class="count">0 contacts found</p>
+      </div>
+      <button id="btn-stop-scrape" class="secondary-btn">⏹ Stop Scraping</button>
+    </section>
+
+    <!-- Step 3: Results -->
+    <section id="step-results" class="step">
+      <div class="results-header">
+        <h2 id="results-title">Results</h2>
+        <span id="results-count" class="badge">0</span>
+      </div>
+
+      <div id="contacts-list" class="contacts-list"></div>
+
+      <div class="actions">
+        <button id="btn-generate" class="primary-btn">
+          ✍️ Generate Messages
+        </button>
+        <button id="btn-export" class="secondary-btn">
+          📋 Export CSV
+        </button>
+        <button id="btn-new-search" class="secondary-btn">
+          🔄 New Search
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 4: Generating Messages -->
+    <section id="step-generating" class="step">
+      <div class="status-box">
+        <div class="spinner"></div>
+        <p id="gen-status">Generating personalized messages...</p>
+        <p id="gen-progress" class="count">0 / 0</p>
+      </div>
+      <button id="btn-stop-gen" class="secondary-btn">⏹ Stop</button>
+    </section>
+
+    <!-- Step 5: Message Review -->
+    <section id="step-messages" class="step">
+      <div class="results-header">
+        <h2>Review Messages</h2>
+        <span id="msg-count" class="badge">0</span>
+      </div>
+
+      <div id="messages-list" class="messages-list"></div>
+
+      <div class="actions">
+        <button id="btn-copy-all" class="primary-btn">
+          📋 Copy All Messages
+        </button>
+        <button id="btn-back-results" class="secondary-btn">
+          ← Back to Contacts
+        </button>
+        <button id="btn-new-search-2" class="secondary-btn">
+          🔄 New Search
+        </button>
+      </div>
+    </section>
+
+    <!-- Settings Panel -->
+    <section id="step-settings" class="step">
+      <h2 class="settings-title">API Settings</h2>
+
+      <label for="api-provider">LLM Provider</label>
+      <select id="api-provider" class="select-input">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="xai">xAI (Grok)</option>
+      </select>
+
+      <label for="api-key" style="margin-top: 12px;">API Key</label>
+      <input
+        type="password"
+        id="api-key"
+        placeholder="sk-ant-... or xai-..."
+        autocomplete="off"
+        class="api-key-input"
+      />
+
+      <label for="api-model" style="margin-top: 12px;">Model</label>
+      <select id="api-model" class="select-input">
+        <!-- populated by JS based on provider -->
+      </select>
+
+      <label for="msg-context" style="margin-top: 12px;">Your Context (optional)</label>
+      <textarea
+        id="msg-context"
+        placeholder="e.g. I'm a Platform Engineer looking for DevOps roles. I recently applied to this company..."
+        rows="3"
+        class="context-input"
+      ></textarea>
+
+      <button id="btn-save-settings" class="primary-btn">💾 Save Settings</button>
+      <button id="btn-cancel-settings" class="secondary-btn">← Back</button>
+    </section>
+
+    <!-- Status Bar -->
+    <footer id="status-bar" class="status-bar">
+      <span id="status-text">Ready</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
