@@ -6,10 +6,10 @@ Target: an **Unlisted** listing. Unlisted items are not searchable in the store;
 
 ## 0. Fix these before submitting
 
-- [ ] **Behavior vs. claims.** In v0.3.0 the extension finds people, writes a note per contact with your AI provider, and sends each connection request with that personal note through LinkedIn's own invite flow, one profile at a time. It skips profiles where LinkedIn requires the member's email to connect, and anyone already connected, pending, or follow-only, and records each result (sent, skipped, failed) in a send log. The store listing, screenshots, and privacy policy must say this plainly and match the shipped build, or review will reject it as misleading. The landing page and demo at https://outreach.mwk.dev should be checked against this too.
+- [ ] **Behavior vs. claims.** In v0.3.1 the extension finds people, writes a note per contact with your AI provider, and sends each connection request with that personal note through LinkedIn's own invite flow, one profile at a time. It skips profiles where LinkedIn requires the member's email to connect, and anyone already connected, pending, or follow-only, and records each result (sent, skipped, failed) in a send log. The store listing, screenshots, and privacy policy must say this plainly and match the shipped build, or review will reject it as misleading. The landing page and demo at https://outreach.mwk.dev should be checked against this too.
 - [x] **Name.** `manifest.json` name is "Outreach Assistant" (no "LinkedIn" in the name, to avoid trademark/impersonation review). Say "for LinkedIn" only in the description.
 - [ ] **Permissions.** The manifest requests `tabs`, `scripting`, `activeTab`, `storage`, `sidePanel`, and host access to `www.linkedin.com`, `api.anthropic.com`, `api.x.ai`. Remove any you don't use; each one needs a written justification (step 6).
-- [ ] **Bump `version`** in `manifest.json` for each upload (the store rejects a repeated version). Current: 0.3.0.
+- [ ] **Bump `version`** in `manifest.json` for each upload (the store rejects a repeated version). Current: 0.3.1.
 
 ## 1. Register a developer account
 
@@ -23,7 +23,7 @@ Target: an **Unlisted** listing. Unlisted items are not searchable in the store;
 From the extension folder, zip only what Chrome needs, with `manifest.json` at the zip root:
 
     cd ~/linkedin-outreach-extension
-    zip -r ../outreach-assistant-0.3.0.zip manifest.json icons src -x "*.DS_Store"
+    zip -r ../outreach-assistant-0.3.1.zip manifest.json icons src -x "*.DS_Store"
 
 Check it: unzip into a new folder, load it via `chrome://extensions` → Load unpacked, and confirm it works before uploading.
 
