@@ -1,4 +1,4 @@
-# LinkedIn Outreach Assistant — Chrome Extension
+# Outreach Assistant — Chrome Extension
 
 Chrome extension that scrapes LinkedIn people search results by company and supports automated cold outreach.
 
@@ -24,8 +24,6 @@ Chrome extension that scrapes LinkedIn people search results by company and supp
 ```
 manifest.json          — Manifest V3 config
 src/
-  popup/               — Extension popup UI
-    popup.html/css/js   
   content/             — Content scripts (run on LinkedIn)
     scraper.js         — Scrapes search result pages
     overlay.css        — In-page overlay styles

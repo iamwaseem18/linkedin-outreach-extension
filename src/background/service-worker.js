@@ -3,12 +3,16 @@
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[LinkedIn Outreach] Extension installed');
-  chrome.storage.local.set({
-    sendMode: 'manual',
-    contacts: [],
-    messageHistory: [],
-    currentCompany: '',
-    scrapeState: 'idle' // idle | scraping | done
+  // Only set defaults — never overwrite existing settings like apiKey
+  chrome.storage.local.get(['sendMode', 'apiKey'], (existing) => {
+    const defaults = {
+      contacts: [],
+      messageHistory: [],
+      currentCompany: '',
+      scrapeState: 'idle'
+    };
+    if (!existing.sendMode) defaults.sendMode = 'manual';
+    chrome.storage.local.set(defaults);
   });
 });
 

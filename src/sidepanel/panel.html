@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LinkedIn Outreach Assistant</title>
+  <title>Outreach Assistant</title>
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
@@ -93,7 +93,10 @@
       <div id="messages-list" class="messages-list"></div>
 
       <div class="actions">
-        <button id="btn-copy-all" class="primary-btn">
+        <button id="btn-send-all" class="primary-btn">
+          🚀 Send Connection Requests
+        </button>
+        <button id="btn-copy-all" class="secondary-btn">
           📋 Copy All Messages
         </button>
         <button id="btn-back-results" class="secondary-btn">
@@ -103,6 +106,19 @@
           🔄 New Search
         </button>
       </div>
+    </section>
+
+    <!-- Step 6: Sending Messages -->
+    <section id="step-sending" class="step">
+      <div class="status-box">
+        <div class="spinner" id="send-spinner"></div>
+        <p id="send-status">Sending connection requests...</p>
+        <p id="send-progress" class="count">0 / 0</p>
+      </div>
+      <div id="send-log" class="send-log"></div>
+      <button id="btn-stop-send" class="secondary-btn">⏹ Stop Sending</button>
+      <button id="btn-send-done" class="primary-btn" style="display:none">✓ Done — Back to Messages</button>
+      <button id="btn-send-newsearch" class="secondary-btn" style="display:none">🔄 New Search</button>
     </section>
 
     <!-- Settings Panel -->

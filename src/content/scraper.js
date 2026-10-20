@@ -1,6 +1,9 @@
 // LinkedIn People Search Scraper — content script
 // Runs on linkedin.com pages, listens for commands from popup
 
+if (window.__linkedinScraperLoaded) { /* already injected */ } else {
+window.__linkedinScraperLoaded = true;
+
 let stopRequested = false;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -14,6 +17,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.action === 'stopScraping') {
     stopRequested = true;
+  }
+
+  if (msg.action === 'fillAndSendInvite') {
+    fillAndSendInvite(msg.message, msg.contactName).then(result => {
+      sendResponse(result);
+    });
+    return true;
   }
 });
 
@@ -276,8 +286,171 @@ function cleanProfileUrl(url) {
   }
 }
 
+/**
+ * Fill the connection-invite note and send it.
+ *
+ * Runs on LinkedIn's custom-invite preload page
+ * (/preload/custom-invite/?vanityName=<slug>), which opens the invite modal
+ * directly. This is far more reliable than clicking the profile's Connect
+ * button — LinkedIn's new UI framework ignores scripted clicks on those.
+ */
+async function fillAndSendInvite(message, contactName) {
+  try {
+    console.log(`[LinkedIn Outreach] Invite flow for ${contactName}`);
+
+    const modal = await waitForModal();
+    if (!modal) {
+      return { skipped: true, reason: 'No invite dialog (already connected, pending, or follow-only)' };
+    }
+    console.log('[LinkedIn Outreach] Invite modal appeared');
+
+    // Email gate: some profiles require the member's email to connect.
+    // We cannot automate past that — skip cleanly.
+    const emailInput = modal.querySelector('input[type="email"]');
+    if (emailInput && emailInput.offsetParent !== null) {
+      await dismissModal();
+      return { skipped: true, reason: 'Email required to connect' };
+    }
+
+    // Reveal the note textarea by clicking "Add a note" (if shown)
+    const addNoteBtn = findAddNoteButton(modal);
+    if (addNoteBtn) {
+      addNoteBtn.click();
+      await sleep(1200);
+    }
+
+    // DOM may have re-rendered — re-query the dialog
+    const dlg = document.querySelector('[role="dialog"]') || modal;
+    const textarea = dlg.querySelector('textarea');
+
+    if (textarea) {
+      typeIntoField(textarea, message);
+      await sleep(700);
+
+      const sendBtn = findPrimarySend(dlg);
+      if (sendBtn && !sendBtn.disabled) {
+        sendBtn.click();
+        await sleep(1500);
+        console.log(`[LinkedIn Outreach] ✓ Sent to ${contactName}`);
+        return { success: true };
+      }
+      // Send stayed disabled — the note didn't register or there's another gate
+      await dismissModal();
+      return { skipped: true, reason: 'Send stayed disabled' };
+    }
+
+    // No note field — fall back to sending without a note
+    const sendPlain = findSendWithoutNote(dlg) || findPrimarySend(dlg);
+    if (sendPlain && !sendPlain.disabled) {
+      sendPlain.click();
+      await sleep(1500);
+      console.log(`[LinkedIn Outreach] ✓ Sent to ${contactName} (no note)`);
+      return { success: true };
+    }
+
+    await dismissModal();
+    return { skipped: true, reason: 'No note field or send button' };
+
+  } catch (err) {
+    console.error(`[LinkedIn Outreach] Invite error for ${contactName}:`, err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Type text into a React/framework-controlled input or textarea.
+ * Uses the native value setter so the framework's change tracking fires —
+ * a plain `.value = ...` is ignored by React-style components.
+ */
+function typeIntoField(el, text) {
+  el.focus();
+  const proto = el.tagName === 'TEXTAREA'
+    ? window.HTMLTextAreaElement.prototype
+    : window.HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+  setter.call(el, '');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  setter.call(el, text);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * Close the invite modal without sending (used when skipping).
+ * Handles the "Discard" confirmation LinkedIn shows if a note was typed.
+ */
+async function dismissModal() {
+  const closeBtn = [...document.querySelectorAll('[role="dialog"] button')]
+    .find(b => (b.getAttribute('aria-label') || '') === 'Dismiss' || b.textContent.trim() === 'Cancel');
+  if (closeBtn) closeBtn.click();
+  await sleep(700);
+  const discard = [...document.querySelectorAll('[role="dialog"] button')]
+    .find(b => /discard/i.test(b.textContent));
+  if (discard) discard.click();
+}
+
+/**
+ * Wait for the invite dialog to appear.
+ */
+async function waitForModal() {
+  const maxWait = 10000;
+  const interval = 400;
+  let waited = 0;
+  while (waited < maxWait) {
+    const modal = document.querySelector('[role="dialog"]') ||
+                  document.querySelector('.artdeco-modal') ||
+                  document.querySelector('.send-invite');
+    if (modal && modal.offsetParent !== null) return modal;
+    await sleep(interval);
+    waited += interval;
+  }
+  return null;
+}
+
+function findAddNoteButton(scope) {
+  const root = scope || document;
+  const buttons = root.querySelectorAll('button');
+  for (const btn of buttons) {
+    if (btn.offsetParent === null) continue;
+    const text = btn.textContent.trim().toLowerCase();
+    const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+    if (text === 'add a note' || ariaLabel.includes('add a note')) {
+      return btn;
+    }
+  }
+  return null;
+}
+
+/**
+ * The primary "Send" / "Send invitation" button (sends with the note).
+ */
+function findPrimarySend(scope) {
+  const root = scope || document;
+  const buttons = [...root.querySelectorAll('button')].filter(b => b.offsetParent !== null);
+  return buttons.find(b => {
+    const t = b.textContent.trim();
+    const a = b.getAttribute('aria-label') || '';
+    return t === 'Send' || a === 'Send invitation' || a.includes('Send invitation');
+  }) || null;
+}
+
+/**
+ * The "Send without a note" button (fallback when no note can be added).
+ */
+function findSendWithoutNote(scope) {
+  const root = scope || document;
+  const buttons = [...root.querySelectorAll('button')].filter(b => b.offsetParent !== null);
+  return buttons.find(b => {
+    const t = b.textContent.trim();
+    const a = b.getAttribute('aria-label') || '';
+    return t === 'Send without a note' || a.includes('Send without');
+  }) || null;
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 console.log('[LinkedIn Outreach] Content script loaded');
+
+} // end guard

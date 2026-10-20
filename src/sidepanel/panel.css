@@ -458,6 +458,34 @@ input[type="password"]::placeholder {
   color: #555;
 }
 
+/* Send Log */
+.send-log {
+  max-height: 30vh;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.send-log-item {
+  padding: 6px 10px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  color: #ccc;
+}
+
+.send-log-item.success {
+  border-left: 3px solid #2ea44f;
+}
+
+.send-log-item.error {
+  border-left: 3px solid #e53e3e;
+}
+
+.send-log-item.skipped {
+  border-left: 3px solid #f0c040;
+}
+
 /* Scrollbar */
 .contacts-list::-webkit-scrollbar,
 .messages-list::-webkit-scrollbar {

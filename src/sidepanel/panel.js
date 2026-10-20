@@ -3,6 +3,7 @@ let currentMode = 'manual'; // 'manual' | 'auto'
 let scrapedContacts = [];
 let generatedMessages = []; // { contact, message }
 let isGenerationStopped = false;
+let isSendingStopped = false;
 let previousStep = 'step-company';
 let pollInterval = null;
 
@@ -13,7 +14,7 @@ const modeManual = document.getElementById('mode-manual');
 const modeAuto = document.getElementById('mode-auto');
 const statusText = document.getElementById('status-text');
 
-const allSteps = ['step-company', 'step-scraping', 'step-results', 'step-generating', 'step-messages', 'step-settings'];
+const allSteps = ['step-company', 'step-scraping', 'step-results', 'step-generating', 'step-messages', 'step-sending', 'step-settings'];
 
 // Enable scrape button when company is typed
 companyInput.addEventListener('input', () => {
@@ -44,7 +45,7 @@ const msgContext = document.getElementById('msg-context');
 
 const MODELS = {
   anthropic: [
-    { value: 'claude-sonnet-4-5-20250514', label: 'Claude Sonnet 4.5' },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
     { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
   ],
   xai: [
@@ -70,7 +71,15 @@ chrome.storage.local.get(['apiProvider', 'apiKey', 'apiModel', 'msgContext'], (r
     populateModels();
   }
   if (result.apiKey) apiKey.value = result.apiKey;
-  if (result.apiModel) apiModel.value = result.apiModel;
+  if (result.apiModel) {
+    // Auto-fix broken model IDs from previous versions
+    const brokenIds = ['claude-sonnet-4-5-20250514', 'claude-sonnet-4-20250514'];
+    if (brokenIds.includes(result.apiModel)) {
+      result.apiModel = 'claude-3-5-sonnet-20241022';
+      chrome.storage.local.set({ apiModel: result.apiModel });
+    }
+    apiModel.value = result.apiModel;
+  }
   if (result.msgContext) msgContext.value = result.msgContext;
 });
 
@@ -185,8 +194,7 @@ function showResults() {
 
   list.innerHTML = scrapedContacts.map((c, i) => `
     <div class="contact-card">
-      <img class="contact-avatar" src="${c.avatar || ''}" alt=""
-           onerror="this.style.display='none'">
+      <img class="contact-avatar" src="${c.avatar || ''}" alt="">
       <div class="contact-info">
         <div class="contact-name">${escapeHtml(c.name)}</div>
         <div class="contact-title">${escapeHtml(c.title || '')}</div>
@@ -194,6 +202,11 @@ function showResults() {
       <input type="checkbox" class="contact-check" data-index="${i}" checked>
     </div>
   `).join('');
+
+  // Hide broken avatar images (CSP blocks inline onerror handlers)
+  list.querySelectorAll('.contact-avatar').forEach(img => {
+    img.addEventListener('error', () => { img.style.display = 'none'; });
+  });
 
   statusText.textContent = `${scrapedContacts.length} contacts found`;
 }
@@ -288,7 +301,7 @@ async function callAnthropic(prompt, settings) {
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: settings.apiModel || 'claude-haiku-4-5-20251001',
+      model: settings.apiModel || 'claude-haiku-4-5-20251001',  // fallback
       max_tokens: 200,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -443,6 +456,164 @@ document.getElementById('btn-back-results').addEventListener('click', () => {
 document.getElementById('btn-new-search-2').addEventListener('click', () => {
   resetState();
 });
+
+// ─── Send Connection Requests ───────────────────────────
+document.getElementById('btn-send-all').addEventListener('click', startSending);
+
+document.getElementById('btn-stop-send').addEventListener('click', () => {
+  isSendingStopped = true;
+  document.getElementById('send-status').textContent = 'Stopping…';
+});
+
+document.getElementById('btn-send-done').addEventListener('click', () => {
+  showStep('step-messages');
+});
+
+document.getElementById('btn-send-newsearch').addEventListener('click', () => {
+  location.reload();
+});
+
+async function startSending() {
+  if (generatedMessages.length === 0) {
+    statusText.textContent = 'No messages to send';
+    return;
+  }
+
+  isSendingStopped = false;
+  showStep('step-sending');
+  // Reset to "in progress" UI state
+  document.getElementById('send-spinner').style.display = '';
+  document.getElementById('btn-stop-send').style.display = '';
+  document.getElementById('btn-send-done').style.display = 'none';
+  document.getElementById('btn-send-newsearch').style.display = 'none';
+  const total = generatedMessages.length;
+  const sendLog = document.getElementById('send-log');
+  sendLog.innerHTML = '';
+
+  for (let i = 0; i < generatedMessages.length; i++) {
+    if (isSendingStopped) {
+      addSendLog(sendLog, 'Stopped by user', 'skipped');
+      break;
+    }
+
+    const item = generatedMessages[i];
+    document.getElementById('send-status').textContent = `Sending to ${item.contact.name}...`;
+    document.getElementById('send-progress').textContent = `${i + 1} / ${total}`;
+
+    try {
+      // Find the LinkedIn tab
+      const tabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
+      if (tabs.length === 0) {
+        addSendLog(sendLog, `${item.contact.name}: No LinkedIn tab open`, 'error');
+        continue;
+      }
+
+      const tabId = tabs[0].id;
+
+      // Derive the vanityName (the /in/<slug>) and open LinkedIn's invite
+      // modal directly via the custom-invite preload URL. This is far more
+      // reliable than clicking the Connect button, which LinkedIn's new UI
+      // framework no longer responds to for scripted clicks.
+      const vanityName = extractVanityName(item.contact.profileUrl);
+      if (!vanityName) {
+        addSendLog(sendLog, `✗ ${item.contact.name}: Bad profile URL`, 'error');
+        continue;
+      }
+
+      const inviteUrl = `https://www.linkedin.com/preload/custom-invite/?vanityName=${encodeURIComponent(vanityName)}`;
+      await chrome.tabs.update(tabId, { url: inviteUrl });
+      await waitForTabComplete(tabId);
+      await sleepMs(2500 + Math.random() * 1500);
+
+      // Re-inject content script
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['src/content/scraper.js']
+        });
+      } catch (e) { /* may already be injected */ }
+
+      await sleepMs(1000);
+
+      // Tell the content script to fill the note and send the invite
+      const result = await chrome.tabs.sendMessage(tabId, {
+        action: 'fillAndSendInvite',
+        message: item.message,
+        contactName: item.contact.name
+      });
+
+      if (result && result.success) {
+        addSendLog(sendLog, `✓ ${item.contact.name}: Sent!`, 'success');
+      } else if (result && result.skipped) {
+        addSendLog(sendLog, `⊘ ${item.contact.name}: ${result.reason}`, 'skipped');
+      } else {
+        addSendLog(sendLog, `✗ ${item.contact.name}: ${result?.error || 'Unknown error'}`, 'error');
+      }
+
+    } catch (err) {
+      addSendLog(sendLog, `✗ ${item.contact.name}: ${err.message}`, 'error');
+    }
+
+    // Wait between sends (random 8-15 seconds to look human)
+    if (i < generatedMessages.length - 1 && !isSendingStopped) {
+      const waitSec = 8 + Math.floor(Math.random() * 7);
+      document.getElementById('send-status').textContent = `Waiting ${waitSec}s before next...`;
+      await sleepMs(waitSec * 1000);
+    }
+  }
+
+  // Return the LinkedIn tab to the feed so it isn't left on the blank
+  // preload invite page.
+  try {
+    const liTabs = await chrome.tabs.query({ url: 'https://www.linkedin.com/*' });
+    if (liTabs.length > 0) {
+      await chrome.tabs.update(liTabs[0].id, { url: 'https://www.linkedin.com/feed/' });
+    }
+  } catch (e) { /* non-fatal */ }
+
+  // Finished — switch to the "done" UI state
+  const sent = sendLog.querySelectorAll('.send-log-item.success').length;
+  const skipped = sendLog.querySelectorAll('.send-log-item.skipped').length;
+  const failed = sendLog.querySelectorAll('.send-log-item.error').length;
+  document.getElementById('send-spinner').style.display = 'none';
+  document.getElementById('btn-stop-send').style.display = 'none';
+  document.getElementById('btn-send-done').style.display = '';
+  document.getElementById('btn-send-newsearch').style.display = '';
+  document.getElementById('send-status').textContent =
+    isSendingStopped ? 'Stopped' : 'Done!';
+  document.getElementById('send-progress').textContent =
+    `${sent} sent · ${skipped} skipped · ${failed} failed`;
+  statusText.textContent = 'Sending complete';
+}
+
+function extractVanityName(profileUrl) {
+  if (!profileUrl) return null;
+  const m = profileUrl.match(/\/in\/([^/?#]+)/);
+  return m ? m[1] : null;
+}
+
+function addSendLog(container, text, type) {
+  const div = document.createElement('div');
+  div.className = `send-log-item ${type}`;
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function waitForTabComplete(tabId) {
+  return new Promise(resolve => {
+    chrome.tabs.onUpdated.addListener(function listener(id, info) {
+      if (id === tabId && info.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    });
+  });
+}
+
+function sleepMs(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // ─── Export CSV ──────────────────────────────────────────
 document.getElementById('btn-export').addEventListener('click', () => {

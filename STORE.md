@@ -6,10 +6,10 @@ Target: an **Unlisted** listing. Unlisted items are not searchable in the store;
 
 ## 0. Fix these before submitting
 
-- [ ] **Behavior vs. claims.** In v0.2.0 the extension finds people, writes a note per contact with your AI provider, and lets you copy notes or export CSV. It does **not** send messages (sending is still on the roadmap in `README.md`). The landing page and demo at https://outreach.mwk.dev describe reviewing and *sending*. The store listing, screenshots, and privacy policy must match what the shipped build does, or review will reject it as misleading. Either ship sending first, or reword the listing, screenshots, and site to "find people, draft notes, copy or export".
-- [ ] **Name.** `manifest.json` says "LinkedIn Outreach Assistant". Using "LinkedIn" in a product name can fail trademark/impersonation review. Use **Outreach Assistant** for the manifest `name` and the listing, and say "for LinkedIn" only in the description.
-- [ ] **Permissions.** The manifest requests `tabs`, `scripting`, `activeTab`, `storage`, `sidePanel`, and host access to `www.linkedin.com`, `api.anthropic.com`, `api.x.ai`. Remove any you don't use; each one needs a written justification (step 6). The `src/popup/` folder duplicates the side panel and is not referenced in the manifest; remove it if it is dead code.
-- [ ] **Bump `version`** in `manifest.json` for each upload (the store rejects a repeated version).
+- [ ] **Behavior vs. claims.** In v0.3.0 the extension finds people, writes a note per contact with your AI provider, and sends each connection request with that personal note through LinkedIn's own invite flow, one profile at a time. It skips profiles where LinkedIn requires the member's email to connect, and anyone already connected, pending, or follow-only, and records each result (sent, skipped, failed) in a send log. The store listing, screenshots, and privacy policy must say this plainly and match the shipped build, or review will reject it as misleading. The landing page and demo at https://outreach.mwk.dev should be checked against this too.
+- [x] **Name.** `manifest.json` name is "Outreach Assistant" (no "LinkedIn" in the name, to avoid trademark/impersonation review). Say "for LinkedIn" only in the description.
+- [ ] **Permissions.** The manifest requests `tabs`, `scripting`, `activeTab`, `storage`, `sidePanel`, and host access to `www.linkedin.com`, `api.anthropic.com`, `api.x.ai`. Remove any you don't use; each one needs a written justification (step 6).
+- [ ] **Bump `version`** in `manifest.json` for each upload (the store rejects a repeated version). Current: 0.3.0.
 
 ## 1. Register a developer account
 
@@ -23,7 +23,7 @@ Target: an **Unlisted** listing. Unlisted items are not searchable in the store;
 From the extension folder, zip only what Chrome needs, with `manifest.json` at the zip root:
 
     cd ~/linkedin-outreach-extension
-    zip -r ../outreach-assistant-0.2.0.zip manifest.json icons src -x "*.DS_Store"
+    zip -r ../outreach-assistant-0.3.0.zip manifest.json icons src -x "*.DS_Store"
 
 Check it: unzip into a new folder, load it via `chrome://extensions` → Load unpacked, and confirm it works before uploading.
 
@@ -36,7 +36,7 @@ Developer Dashboard → **Add new item** → upload the zip.
 | Field | Value |
 |---|---|
 | Name | Outreach Assistant |
-| Summary (max 132 chars) | An assistant you operate: find people at a company on LinkedIn and draft personal notes you review. |
+| Summary (max 132 chars) | An assistant you operate: find people at a company on LinkedIn and send connection requests with a personal note. |
 | Category | Productivity (or Workflow & Planning) |
 | Language | English |
 
@@ -44,13 +44,13 @@ Developer Dashboard → **Add new item** → upload the zip.
 
 > Outreach Assistant is an assistant you operate, from a side panel in your own browser.
 >
-> Type a company name and it collects the people it finds in LinkedIn search results. Choose the people you want, and it drafts a short personal note for each one using the AI provider you pick (Anthropic or xAI) with your own API key. You review and edit every note. Then copy them or export the contacts as CSV.
+> Type a company name and it collects the people it finds in LinkedIn search results. Choose the people you want, and it drafts a short personal note for each one using the AI provider you pick (Anthropic or xAI) with your own API key. You review and edit every note. Then it sends a connection request with that note through LinkedIn's own invite flow, one profile at a time, and shows a send log of what was sent, skipped, or failed. Profiles where LinkedIn requires the person's email to connect are skipped. You can also export the contacts as CSV.
 >
 > You stay at the wheel:
 > - Runs in your own browser and your own signed-in LinkedIn session
 > - Bring your own API key; it is stored only on your computer
 > - No account with us, no servers in the middle, no tracking
-> - Nothing is written or sent without your review
+> - You choose who to contact and you can stop a send run at any time
 >
 > Outreach Assistant is not affiliated with or endorsed by LinkedIn. Use it in line with LinkedIn's terms.
 
@@ -65,13 +65,13 @@ Developer Dashboard → **Add new item** → upload the zip.
 
 ## 6. Privacy tab
 
-- **Single purpose:** "Help a user find people at a company in LinkedIn search results and draft personal outreach notes for them to review."
+- **Single purpose:** "Help a user find people at a company in LinkedIn search results and draft and send personal connection-request notes to them."
 - **Permission justifications** (one per permission):
   - `sidePanel`: shows the assistant panel beside LinkedIn.
-  - `activeTab` / `tabs`: reads the open LinkedIn search tab and navigates it to the people-search page.
-  - `scripting`: runs the page reader on LinkedIn pages.
+  - `activeTab` / `tabs`: reads the open LinkedIn search tab and navigates it to the people-search page and to each selected profile's invite page.
+  - `scripting`: runs the page reader and the invite-form filler on LinkedIn pages.
   - `storage`: saves settings, the API key, and collected contacts locally.
-  - Host `https://www.linkedin.com/*`: reads search results the user is viewing.
+  - Host `https://www.linkedin.com/*`: reads search results the user is viewing and submits the connection request the user chose to send.
   - Host `https://api.anthropic.com/*` and `https://api.x.ai/*`: sends the drafting request to the provider the user chose.
 - **Remote code:** declare **No**. All code ships in the package.
 - **Privacy policy URL:** https://outreach.mwk.dev/#privacy
@@ -97,7 +97,7 @@ Developer Dashboard → **Add new item** → upload the zip.
 
 ## Common rejection reasons to check
 
-- Listing or screenshots promise something the build doesn't do (see step 0).
+- Listing or screenshots promise something the build doesn't do, or hide that it sends connection requests (see step 0).
 - Permissions that aren't used, or justifications that are vague.
 - Privacy policy doesn't mention the AI provider or doesn't match the data-use form.
 - "LinkedIn" in the product name or icon implying endorsement.
