@@ -1,5 +1,4 @@
 // State
-let currentMode = 'manual'; // 'manual' | 'auto'
 let scrapedContacts = [];
 let generatedMessages = []; // { contact, message }
 let isGenerationStopped = false;
@@ -10,8 +9,6 @@ let pollInterval = null;
 // Elements
 const companyInput = document.getElementById('company-input');
 const btnScrape = document.getElementById('btn-scrape');
-const modeManual = document.getElementById('mode-manual');
-const modeAuto = document.getElementById('mode-auto');
 const statusText = document.getElementById('status-text');
 
 const allSteps = ['step-company', 'step-scraping', 'step-results', 'step-generating', 'step-messages', 'step-sending', 'step-settings'];
@@ -19,22 +16,6 @@ const allSteps = ['step-company', 'step-scraping', 'step-results', 'step-generat
 // Enable scrape button when company is typed
 companyInput.addEventListener('input', () => {
   btnScrape.disabled = companyInput.value.trim().length < 2;
-});
-
-// Mode toggle
-modeManual.addEventListener('click', () => setMode('manual'));
-modeAuto.addEventListener('click', () => setMode('auto'));
-
-function setMode(mode) {
-  currentMode = mode;
-  modeManual.classList.toggle('active', mode === 'manual');
-  modeAuto.classList.toggle('active', mode === 'auto');
-  chrome.storage.local.set({ sendMode: mode });
-}
-
-// Load saved mode
-chrome.storage.local.get(['sendMode'], (result) => {
-  if (result.sendMode) setMode(result.sendMode);
 });
 
 // ─── Settings ────────────────────────────────────────────
@@ -131,8 +112,6 @@ async function startScraping() {
   scrapedContacts = [];
   showStep('step-scraping');
   updateScrapeStatus('Navigating to LinkedIn search...', 0);
-
-  chrome.storage.local.set({ sendMode: currentMode });
 
   // Tell the background service worker to handle scraping
   chrome.runtime.sendMessage({ action: 'startScrape', company: company });

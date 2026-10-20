@@ -138,45 +138,6 @@ input[type="password"]::placeholder {
   color: #555;
 }
 
-/* Mode Toggle */
-.mode-toggle {
-  margin: 14px 0;
-}
-
-.toggle-label {
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.toggle-buttons {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 8px 12px;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  color: #aaa;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.mode-btn:hover {
-  border-color: #555;
-  color: #fff;
-}
-
-.mode-btn.active {
-  background: #0a66c2;
-  border-color: #0a66c2;
-  color: #fff;
-}
-
 /* Buttons */
 .primary-btn {
   width: 100%;
