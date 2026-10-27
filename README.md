@@ -1,4 +1,4 @@
-# Outreach Assistant — Chrome Extension (v0.3.1)
+# Outreach Assistant — Chrome Extension (v0.3.2)
 
 Chrome extension, running as a side panel next to LinkedIn, that finds people at a company, drafts a personal note for each with your own AI key, and sends connection requests with that note attached.
 

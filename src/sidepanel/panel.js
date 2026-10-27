@@ -23,6 +23,7 @@ const apiProvider = document.getElementById('api-provider');
 const apiKey = document.getElementById('api-key');
 const apiModel = document.getElementById('api-model');
 const msgContext = document.getElementById('msg-context');
+const reachContext = document.getElementById('reach-context');
 
 const MODELS = {
   anthropic: [
@@ -46,7 +47,7 @@ apiProvider.addEventListener('change', populateModels);
 populateModels();
 
 // Load saved settings
-chrome.storage.local.get(['apiProvider', 'apiKey', 'apiModel', 'msgContext'], (result) => {
+chrome.storage.local.get(['apiProvider', 'apiKey', 'apiModel', 'msgContext', 'reachContext'], (result) => {
   if (result.apiProvider) {
     apiProvider.value = result.apiProvider;
     populateModels();
@@ -62,6 +63,11 @@ chrome.storage.local.get(['apiProvider', 'apiKey', 'apiModel', 'msgContext'], (r
     apiModel.value = result.apiModel;
   }
   if (result.msgContext) msgContext.value = result.msgContext;
+  if (result.reachContext) reachContext.value = result.reachContext;
+});
+
+reachContext.addEventListener('input', () => {
+  chrome.storage.local.set({ reachContext: reachContext.value });
 });
 
 document.getElementById('btn-settings').addEventListener('click', () => {
@@ -201,6 +207,8 @@ async function startMessageGeneration() {
   }
 
   const settings = await getSettings();
+  settings.reachContext = reachContext.value.trim();
+  chrome.storage.local.set({ reachContext: reachContext.value });
   if (!settings.apiKey) {
     statusText.textContent = 'Set your API key in ⚙️ Settings first';
     previousStep = 'step-results';
@@ -241,6 +249,7 @@ async function startMessageGeneration() {
 
 async function generateMessage(contact, company, settings) {
   const userContext = settings.msgContext || '';
+  const reachContext = settings.reachContext || '';
 
   const prompt = `Write a short, personalized LinkedIn connection request message (under 280 characters) from me to ${contact.name}.
 
@@ -251,7 +260,7 @@ About them:
 - Location: ${contact.location || 'Unknown'}
 - Connection: ${contact.degree || 'Unknown'} degree
 
-${userContext ? `About me (the sender):\n${userContext}\n` : ''}
+${userContext ? `About me (the sender):\n${userContext}\n` : ''}${reachContext ? `Reason for reaching out: ${reachContext}\n(Reflect this reason naturally in the note.)\n` : ''}
 Guidelines:
 - Keep it under 280 characters (LinkedIn connection request limit)
 - Be professional but warm, not salesy
@@ -320,7 +329,7 @@ async function callXAI(prompt, settings) {
 
 function getSettings() {
   return new Promise(resolve => {
-    chrome.storage.local.get(['apiProvider', 'apiKey', 'apiModel', 'msgContext'], resolve);
+    chrome.storage.local.get(['apiProvider', 'apiKey', 'apiModel', 'msgContext', 'reachContext'], resolve);
   });
 }
 
